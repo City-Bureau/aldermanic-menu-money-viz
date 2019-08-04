@@ -1,0 +1,22 @@
+{
+  "name": "aldermanic-menu-money-viz",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "parcel index.html --no-autoinstall",
+    "build": "parcel build index.html"
+  },
+  "keywords": [],
+  "author": "City Bureau",
+  "license": "MIT",
+  "devDependencies": {
+    "elm": "^0.19.0-no-deps",
+    "elm-format": "^0.8.1",
+    "elm-hot": "^1.0.1",
+    "node-elm-compiler": "^5.0.3",
+    "parcel-bundler": "^1.12.3",
+    "parcel-plugin-static-files-copy": "^2.2.0"
+  },
+  "dependencies": {}
+}

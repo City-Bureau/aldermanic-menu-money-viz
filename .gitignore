@@ -1,0 +1,6 @@
+.cache
+.DS_Store
+.vscode
+elm-stuff
+dist
+node_modules
