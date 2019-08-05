@@ -1,11 +1,15 @@
 module Main exposing (Model, Msg(..), WardYear, view)
 
+import Animation exposing (..)
 import Array exposing (Array)
 import Browser
+import Browser.Events exposing (onAnimationFrameDelta)
 import Color exposing (Color)
 import Csv exposing (Csv)
 import Dict exposing (Dict)
-import Html exposing (Html, div, p, text)
+import Html exposing (Html, div, option, p, select, text)
+import Html.Attributes exposing (selected, value)
+import Html.Events exposing (..)
 import Http
 import Parser exposing (Parser)
 import Path
@@ -28,10 +32,18 @@ type Msg
     = UpdateWard String
     | UpdateYears (List Int)
     | LoadData (Result Http.Error String)
+    | Tick Float
 
 
 type alias Model =
-    { loading : Bool, ward : String, years : List Int, data : List WardYear }
+    { loading : Bool
+    , clock : Clock
+    , ward : String
+    , years : List Int
+    , rows : List WardYear
+    , data : Dict String Float
+    , animations : List Animation
+    }
 
 
 categories : List ( String, String )
@@ -62,6 +74,11 @@ h =
 radius : Float
 radius =
     min w h / 2
+
+
+animDur : Float
+animDur =
+    2500
 
 
 colors : Array Color
@@ -106,7 +123,13 @@ csvRecToWardYear headers results =
 
                     _ ->
                         { rec
-                            | data = Dict.union (Dict.fromList [ ( header, Maybe.withDefault 0 (String.toFloat result) ) ]) rec.data
+                            | data =
+                                Dict.union
+                                    (Dict.fromList
+                                        [ ( header, Maybe.withDefault 0 (String.toFloat result) )
+                                        ]
+                                    )
+                                    rec.data
                         }
             )
             emptyWardYear
@@ -136,11 +159,38 @@ groupDataRows rows =
         )
         emptyDataRow
         rows
+        |> Dict.map (\k v -> v / (List.length rows |> toFloat))
 
 
 emptyDataRow : Dict String Float
 emptyDataRow =
-    Dict.fromList (List.map2 Tuple.pair (List.map Tuple.first categories) (List.repeat (List.length categories) 0))
+    Dict.fromList
+        (List.map2
+            Tuple.pair
+            (List.map Tuple.first categories)
+            (List.repeat (List.length categories) 0)
+        )
+
+
+filterRows : String -> List Int -> List WardYear -> List WardYear
+filterRows ward years rows =
+    rows
+        |> List.filter (.ward >> (==) ward)
+        |> List.filter (.year >> (\y -> List.member y years))
+
+
+getAnimations : Clock -> Dict String Float -> Dict String Float -> List Animation
+getAnimations clock prev cur =
+    List.map
+        (Tuple.first
+            >> (\c ->
+                    animation clock
+                        |> from (Maybe.withDefault 0 (Dict.get c prev))
+                        |> to (Maybe.withDefault 0 (Dict.get c cur))
+                        |> duration animDur
+               )
+        )
+        categories
 
 
 main =
@@ -154,7 +204,14 @@ main =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { loading = True, ward = "1", years = [ 2012, 2013, 2014, 2015, 2016, 2017, 2018 ], data = [] }
+    ( { loading = True
+      , clock = 0
+      , ward = "1"
+      , years = [ 2012, 2013, 2014, 2015, 2016, 2017, 2018 ]
+      , rows = []
+      , data = Dict.empty
+      , animations = []
+      }
     , Http.get
         { url = "data.csv", expect = Http.expectString LoadData }
     )
@@ -164,36 +221,66 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         UpdateWard ward ->
-            ( { model | ward = ward }, Cmd.none )
+            let
+                data =
+                    filterRows ward model.years model.rows |> groupDataRows
+
+                animations =
+                    getAnimations model.clock model.data data
+            in
+            ( { model | ward = ward, data = data, animations = animations }, Cmd.none )
 
         UpdateYears years ->
-            ( { model | years = years }, Cmd.none )
+            let
+                data =
+                    filterRows model.ward years model.rows |> groupDataRows
+
+                animations =
+                    getAnimations model.clock model.data data
+            in
+            ( { model | years = years, data = data, animations = animations }, Cmd.none )
 
         LoadData result ->
-            ( { model | loading = False, data = parseData result }, Cmd.none )
+            let
+                rows =
+                    parseData result
+
+                data =
+                    filterRows model.ward model.years rows |> groupDataRows
+
+                animations =
+                    getAnimations model.clock Dict.empty data
+            in
+            ( { model | loading = False, rows = rows, data = data, animations = animations }, Cmd.none )
+
+        Tick dt ->
+            ( { model | clock = model.clock + dt }, Cmd.none )
 
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.none
+    onAnimationFrameDelta Tick
 
 
 view : Model -> Html Msg
 view model =
     let
-        dataRows =
-            model.data |> groupDataRows >> Dict.toList
-
         pieData =
-            dataRows |> List.map Tuple.second |> Shape.pie defaultPieConfig
+            model.animations |> List.map (animate model.clock) |> Shape.pie defaultPieConfig
 
         categoryMap =
             Dict.fromList categories
 
         makeSlice index datum =
-            Path.element (Shape.arc datum) [ fill <| Fill <| Maybe.withDefault Color.black <| Array.get index colors, stroke Color.white ]
+            Path.element (Shape.arc datum)
+                [ fill <|
+                    Fill <|
+                        Maybe.withDefault Color.black <|
+                            Array.get index colors
+                , stroke Color.white
+                ]
 
-        makeLabel slice ( label, value ) =
+        makeLabel slice ( key, label ) =
             let
                 ( x, y ) =
                     Shape.centroid { slice | innerRadius = radius - 40, outerRadius = radius - 40 }
@@ -203,11 +290,21 @@ view model =
                 , dy (em 0.35)
                 , textAnchor AnchorMiddle
                 ]
-                [ text (Maybe.withDefault "" (Dict.get label categoryMap)) ]
+                [ text label ]
     in
-    svg [ viewBox 0 0 w h ]
-        [ g [ transform [ Translate (w / 2) (h / 2) ] ]
-            [ g [] <| List.indexedMap makeSlice pieData
-            , g [] <| List.map2 makeLabel pieData dataRows
+    div []
+        [ select [ onInput UpdateWard ]
+            (List.map
+                (\ward ->
+                    option [ value ward, selected (model.ward == ward) ] [ text ward ]
+                )
+                (List.range 1 50 |> List.map String.fromInt)
+            )
+        , svg
+            [ viewBox 0 0 w h ]
+            [ g [ transform [ Translate (w / 2) (h / 2) ] ]
+                [ g [] <| List.indexedMap makeSlice pieData
+                , g [] <| List.map2 makeLabel pieData categories
+                ]
             ]
         ]
