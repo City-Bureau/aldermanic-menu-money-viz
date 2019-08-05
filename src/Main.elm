@@ -83,19 +83,22 @@ radius =
 
 animDur : Float
 animDur =
-    2500
+    1000
 
 
 colors : Array Color
 colors =
     Array.fromList
-        [ Color.rgb255 152 171 198
-        , Color.rgb255 138 137 166
-        , Color.rgb255 123 104 136
-        , Color.rgb255 107 72 107
-        , Color.rgb255 159 92 85
-        , Color.rgb255 208 116 60
-        , Color.rgb255 255 96 0
+        [ Color.rgb255 31 118 180
+        , Color.rgb255 255 126 14
+        , Color.rgb255 44 160 44
+        , Color.rgb255 214 39 39
+        , Color.rgb255 147 103 189
+        , Color.rgb255 140 86 75
+        , Color.rgb255 227 119 195
+        , Color.rgb255 127 127 127
+        , Color.rgb255 189 189 34
+        , Color.rgb255 23 189 207
         ]
 
 
@@ -214,9 +217,9 @@ pieConfig =
     , padAngle = 0
     , sortingFn = \a b -> compareWithList (categories |> List.map Tuple.first) a.label b.label
     , valueFn = .data
-    , innerRadius = 0
+    , innerRadius = 50
     , outerRadius = 100
-    , cornerRadius = 0
+    , cornerRadius = 5
     , padRadius = 0
     }
 
