@@ -11,9 +11,10 @@ import Html exposing (Html, div, option, p, select, text)
 import Html.Attributes exposing (selected, value)
 import Html.Events exposing (..)
 import Http
+import List.Extra exposing (elemIndex)
 import Parser exposing (Parser)
 import Path
-import Shape exposing (defaultPieConfig)
+import Shape exposing (PieConfig, defaultPieConfig)
 import TypedSvg exposing (g, svg, text_)
 import TypedSvg.Attributes exposing (dy, fill, stroke, textAnchor, transform, viewBox)
 import TypedSvg.Attributes.InPx exposing (height, width)
@@ -26,6 +27,10 @@ type alias WardYear =
     , year : Int
     , data : Dict String Float
     }
+
+
+type alias WardYearGroup =
+    { label : String, data : Float }
 
 
 type Msg
@@ -193,6 +198,29 @@ getAnimations clock prev cur =
         categories
 
 
+compareWithList : List comparable -> comparable -> comparable -> Order
+compareWithList baseList a b =
+    let
+        baseLen =
+            List.length baseList + 1
+    in
+    Basics.compare (Maybe.withDefault baseLen (elemIndex a baseList)) (Maybe.withDefault baseLen (elemIndex b baseList))
+
+
+pieConfig : PieConfig WardYearGroup
+pieConfig =
+    { startAngle = 0
+    , endAngle = 2 * pi
+    , padAngle = 0
+    , sortingFn = \a b -> compareWithList (categories |> List.map Tuple.first) a.label b.label
+    , valueFn = .data
+    , innerRadius = 0
+    , outerRadius = 100
+    , cornerRadius = 0
+    , padRadius = 0
+    }
+
+
 main =
     Browser.element
         { init = init
@@ -207,7 +235,7 @@ init _ =
     ( { loading = True
       , clock = 0
       , ward = "1"
-      , years = [ 2012, 2013, 2014, 2015, 2016, 2017, 2018 ]
+      , years = List.range 2012 2018
       , rows = []
       , data = Dict.empty
       , animations = []
@@ -265,8 +293,17 @@ subscriptions model =
 view : Model -> Html Msg
 view model =
     let
+        minYear =
+            Maybe.withDefault 2012 (model.years |> List.head)
+
+        maxYear =
+            Maybe.withDefault 2018 (model.years |> List.reverse |> List.head)
+
         pieData =
-            model.animations |> List.map (animate model.clock) |> Shape.pie defaultPieConfig
+            model.animations
+                |> List.map (animate model.clock)
+                |> List.map2 WardYearGroup (List.map Tuple.second categories)
+                |> Shape.pie pieConfig
 
         categoryMap =
             Dict.fromList categories
@@ -283,14 +320,21 @@ view model =
         makeLabel slice ( key, label ) =
             let
                 ( x, y ) =
-                    Shape.centroid { slice | innerRadius = radius - 40, outerRadius = radius - 40 }
+                    Shape.centroid { slice | innerRadius = radius - 40, outerRadius = radius - 150 }
             in
             text_
                 [ transform [ Translate x y ]
                 , dy (em 0.35)
                 , textAnchor AnchorMiddle
                 ]
-                [ text label ]
+                [ text
+                    (if slice.endAngle - slice.startAngle > 0.2 then
+                        label
+
+                     else
+                        ""
+                    )
+                ]
     in
     div []
         [ select [ onInput UpdateWard ]
@@ -299,6 +343,22 @@ view model =
                     option [ value ward, selected (model.ward == ward) ] [ text ward ]
                 )
                 (List.range 1 50 |> List.map String.fromInt)
+            )
+        , select
+            [ onInput (\input -> List.range (String.toInt input |> Maybe.withDefault 2012) maxYear |> UpdateYears) ]
+            (List.map
+                (\year ->
+                    option [ value year, selected (String.fromInt minYear == year) ] [ text year ]
+                )
+                (List.range 2012 maxYear |> List.map String.fromInt)
+            )
+        , select
+            [ onInput (\input -> List.range minYear (String.toInt input |> Maybe.withDefault 2018) |> UpdateYears) ]
+            (List.map
+                (\year ->
+                    option [ value year, selected (String.fromInt maxYear == year) ] [ text year ]
+                )
+                (List.range minYear 2018 |> List.map String.fromInt)
             )
         , svg
             [ viewBox 0 0 w h ]
