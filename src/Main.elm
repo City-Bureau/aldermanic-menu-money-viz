@@ -4,14 +4,19 @@ import Animation exposing (..)
 import Array exposing (Array)
 import Browser
 import Browser.Events exposing (onAnimationFrameDelta)
+import Cmd exposing (Ward, mapLoaded, selectWard, selectedWard)
 import Color exposing (Color)
 import Csv exposing (Csv)
 import Dict exposing (Dict)
-import Html exposing (Html, div, option, p, select, text)
-import Html.Attributes exposing (selected, value)
+import FormatNumber exposing (format)
+import FormatNumber.Locales exposing (usLocale)
+import Html exposing (Html, div, node, option, p, select, span, text)
+import Html.Attributes exposing (selected, style, value)
 import Html.Events exposing (..)
 import Http
 import List.Extra exposing (elemIndex)
+import MapStyle exposing (mapStyle)
+import Mapbox.Element exposing (..)
 import Parser exposing (Parser)
 import Path
 import Shape exposing (PieConfig, defaultPieConfig)
@@ -19,6 +24,7 @@ import TypedSvg exposing (g, svg, text_)
 import TypedSvg.Attributes exposing (dy, fill, stroke, textAnchor, transform, viewBox)
 import TypedSvg.Attributes.InPx exposing (height, width)
 import TypedSvg.Core exposing (Svg, text)
+import TypedSvg.Events exposing (onMouseOut, onMouseOver)
 import TypedSvg.Types exposing (AnchorAlignment(..), Fill(..), Transform(..), em)
 
 
@@ -38,6 +44,7 @@ type Msg
     | UpdateYears (List Int)
     | LoadData (Result Http.Error String)
     | Tick Float
+    | HoverCategory String
 
 
 type alias Model =
@@ -47,6 +54,7 @@ type alias Model =
     , years : List Int
     , rows : List WardYear
     , data : Dict String Float
+    , hoverCategory : String
     , animations : List Animation
     }
 
@@ -66,14 +74,19 @@ categories =
     ]
 
 
+wardAldMap : Dict Int String
+wardAldMap =
+    [ ( 1, "" ), ( 2, "" ) ] |> Dict.fromList
+
+
 w : Float
 w =
-    990
+    450
 
 
 h : Float
 h =
-    504
+    450
 
 
 radius : Float
@@ -167,7 +180,6 @@ groupDataRows rows =
         )
         emptyDataRow
         rows
-        |> Dict.map (\k v -> v / (List.length rows |> toFloat))
 
 
 emptyDataRow : Dict String Float
@@ -217,8 +229,8 @@ pieConfig =
     , padAngle = 0
     , sortingFn = \a b -> compareWithList (categories |> List.map Tuple.first) a.label b.label
     , valueFn = .data
-    , innerRadius = 50
-    , outerRadius = 100
+    , innerRadius = 100
+    , outerRadius = 200
     , cornerRadius = 5
     , padRadius = 0
     }
@@ -241,6 +253,7 @@ init _ =
       , years = List.range 2012 2018
       , rows = []
       , data = Dict.empty
+      , hoverCategory = ""
       , animations = []
       }
     , Http.get
@@ -259,7 +272,7 @@ update msg model =
                 animations =
                     getAnimations model.clock model.data data
             in
-            ( { model | ward = ward, data = data, animations = animations }, Cmd.none )
+            ( { model | ward = ward, data = data, animations = animations }, selectWard (String.toInt ward |> Maybe.withDefault 0) )
 
         UpdateYears years ->
             let
@@ -280,9 +293,12 @@ update msg model =
                     filterRows model.ward model.years rows |> groupDataRows
 
                 animations =
-                    getAnimations model.clock Dict.empty data
+                    getAnimations model.clock model.data data
             in
             ( { model | loading = False, rows = rows, data = data, animations = animations }, Cmd.none )
+
+        HoverCategory category ->
+            ( { model | hoverCategory = category }, Cmd.none )
 
         Tick dt ->
             ( { model | clock = model.clock + dt }, Cmd.none )
@@ -290,7 +306,7 @@ update msg model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    onAnimationFrameDelta Tick
+    Sub.batch [ onAnimationFrameDelta Tick, selectedWard (\ward -> UpdateWard (String.fromInt ward)), mapLoaded (\b -> UpdateWard model.ward) ]
 
 
 view : Model -> Html Msg
@@ -302,72 +318,117 @@ view model =
         maxYear =
             Maybe.withDefault 2018 (model.years |> List.reverse |> List.head)
 
-        pieData =
+        wardData =
             model.animations
                 |> List.map (animate model.clock)
                 |> List.map2 WardYearGroup (List.map Tuple.second categories)
-                |> Shape.pie pieConfig
 
-        categoryMap =
-            Dict.fromList categories
+        pieData =
+            wardData |> Shape.pie pieConfig
+
+        categoryArr =
+            List.map Tuple.second categories |> Array.fromList
+
+        displayData =
+            wardData
+                |> List.indexedMap (\idx data -> ( data, idx ))
+
+        -- Create an array with a reference to the sorted index
+        sortedArray =
+            displayData
+                |> List.sortBy (Tuple.first >> .data)
+                |> List.reverse
+                |> List.indexedMap (\sortIdx ( data, idx ) -> ( idx, sortIdx ))
+                |> List.sortBy Tuple.first
+                |> List.map Tuple.second
+                |> Array.fromList
 
         makeSlice index datum =
+            let
+                category =
+                    Array.get index categoryArr |> Maybe.withDefault ""
+            in
             Path.element (Shape.arc datum)
                 [ fill <|
                     Fill <|
                         Maybe.withDefault Color.black <|
                             Array.get index colors
-                , stroke Color.white
-                ]
-
-        makeLabel slice ( key, label ) =
-            let
-                ( x, y ) =
-                    Shape.centroid { slice | innerRadius = radius - 40, outerRadius = radius - 150 }
-            in
-            text_
-                [ transform [ Translate x y ]
-                , dy (em 0.35)
-                , textAnchor AnchorMiddle
-                ]
-                [ text
-                    (if slice.endAngle - slice.startAngle > 0.2 then
-                        label
+                , stroke
+                    (if model.hoverCategory == category then
+                        Color.black
 
                      else
-                        ""
+                        Color.white
                     )
+                , onMouseOver (HoverCategory category)
+                , onMouseOut (HoverCategory "")
                 ]
     in
     div []
-        [ select [ onInput UpdateWard ]
-            (List.map
-                (\ward ->
-                    option [ value ward, selected (model.ward == ward) ] [ text ward ]
+        [ div []
+            [ select [ onInput UpdateWard ]
+                (List.map
+                    (\ward ->
+                        option [ value ward, selected (model.ward == ward) ] [ text ward ]
+                    )
+                    (List.range 1 50 |> List.map String.fromInt)
                 )
-                (List.range 1 50 |> List.map String.fromInt)
-            )
-        , select
-            [ onInput (\input -> List.range (String.toInt input |> Maybe.withDefault 2012) maxYear |> UpdateYears) ]
-            (List.map
-                (\year ->
-                    option [ value year, selected (String.fromInt minYear == year) ] [ text year ]
+            , select
+                [ onInput (\input -> List.range (String.toInt input |> Maybe.withDefault 2012) maxYear |> UpdateYears) ]
+                (List.map
+                    (\year ->
+                        option [ value year, selected (String.fromInt minYear == year) ] [ text year ]
+                    )
+                    (List.range 2012 maxYear |> List.map String.fromInt)
                 )
-                (List.range 2012 maxYear |> List.map String.fromInt)
-            )
-        , select
-            [ onInput (\input -> List.range minYear (String.toInt input |> Maybe.withDefault 2018) |> UpdateYears) ]
-            (List.map
-                (\year ->
-                    option [ value year, selected (String.fromInt maxYear == year) ] [ text year ]
+            , select
+                [ onInput (\input -> List.range minYear (String.toInt input |> Maybe.withDefault 2018) |> UpdateYears) ]
+                (List.map
+                    (\year ->
+                        option [ value year, selected (String.fromInt maxYear == year) ] [ text year ]
+                    )
+                    (List.range minYear 2018 |> List.map String.fromInt)
                 )
-                (List.range minYear 2018 |> List.map String.fromInt)
-            )
-        , svg
-            [ viewBox 0 0 w h ]
-            [ g [ transform [ Translate (w / 2) (h / 2) ] ]
-                [ g [] <| List.indexedMap makeSlice pieData
-                , g [] <| List.map2 makeLabel pieData categories
+            ]
+        , div [ style "display" "flex", style "flex" "1" ]
+            [ div [ style "width" "100%" ]
+                (List.map
+                    (\( data, idx ) ->
+                        p
+                            [ style "position" "absolute"
+                            , style "transition" "transform 200ms ease-in-out"
+                            , style "transform" ("translateY(" ++ String.fromInt ((Array.get idx sortedArray |> Maybe.withDefault 0) * 25) ++ "px)")
+                            ]
+                            [ span
+                                [ style "display" "inline-block"
+                                , style "background-color"
+                                    (Array.get idx colors |> Maybe.withDefault Color.black |> Color.toCssString)
+                                , style "width" "20px"
+                                , style "height" "20px"
+                                , style "margin-right" "6px"
+                                ]
+                                []
+                            , span [] [ text (data.label ++ ": $" ++ format usLocale data.data) ]
+                            ]
+                    )
+                    displayData
+                )
+            , div [ style "width" "100%", style "max-height" "400px" ]
+                [ svg
+                    [ viewBox 0 0 w h, style "max-width" "100%", style "max-height" "100%" ]
+                    [ g [ transform [ Translate (w / 2) (h / 2) ] ]
+                        [ g [] <| List.indexedMap makeSlice pieData
+                        ]
+                    ]
+                ]
+            , div [ style "position" "relative", style "width" "500px", style "height" "500px" ]
+                [ Mapbox.Element.map
+                    [ minZoom 9
+                    , maxZoom 17
+                    , Mapbox.Element.id "map"
+                    , eventFeaturesLayers [ "wards" ]
+                    ]
+                    mapStyle
                 ]
             ]
         ]
