@@ -226,7 +226,7 @@ pieConfig : PieConfig WardYearGroup
 pieConfig =
     { startAngle = 0
     , endAngle = 2 * pi
-    , padAngle = 0
+    , padAngle = 0.0025
     , sortingFn = \a b -> compareWithList (categories |> List.map Tuple.first) a.label b.label
     , valueFn = .data
     , innerRadius = 100
@@ -358,7 +358,7 @@ view model =
                         Color.black
 
                      else
-                        Color.white
+                        Color.rgba 0 0 0 0
                     )
                 , onMouseOver (HoverCategory category)
                 , onMouseOut (HoverCategory "")
@@ -390,13 +390,20 @@ view model =
                     (List.range minYear 2018 |> List.map String.fromInt)
                 )
             ]
-        , div [ style "display" "flex", style "flex" "1" ]
-            [ div [ style "width" "100%" ]
+        , div [ style "display" "flex", style "flex" "1", style "max-width" "1000px" ]
+            [ div [ style "width" "100%", style "max-width" "250px" ]
                 (List.map
                     (\( data, idx ) ->
                         p
                             [ style "position" "absolute"
                             , style "transition" "transform 200ms ease-in-out"
+                            , style "font-weight"
+                                (if Array.get idx categoryArr |> Maybe.withDefault "NULL" |> (==) model.hoverCategory then
+                                    "bold"
+
+                                 else
+                                    "normal"
+                                )
                             , style "transform" ("translateY(" ++ String.fromInt ((Array.get idx sortedArray |> Maybe.withDefault 0) * 25) ++ "px)")
                             ]
                             [ span
@@ -413,7 +420,7 @@ view model =
                     )
                     displayData
                 )
-            , div [ style "width" "100%", style "max-height" "400px" ]
+            , div [ style "width" "100%", style "max-width" "600px", style "max-height" "400px", style "text-align" "center" ]
                 [ svg
                     [ viewBox 0 0 w h, style "max-width" "100%", style "max-height" "100%" ]
                     [ g [ transform [ Translate (w / 2) (h / 2) ] ]
@@ -421,12 +428,11 @@ view model =
                         ]
                     ]
                 ]
-            , div [ style "position" "relative", style "width" "500px", style "height" "500px" ]
+            , div [ style "position" "relative", style "min-width" "300px", style "height" "400px" ]
                 [ Mapbox.Element.map
-                    [ minZoom 9
+                    [ minZoom 8
                     , maxZoom 17
                     , Mapbox.Element.id "map"
-                    , eventFeaturesLayers [ "wards" ]
                     ]
                     mapStyle
                 ]

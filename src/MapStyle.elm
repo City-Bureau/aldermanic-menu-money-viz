@@ -872,13 +872,13 @@ mapStyle =
                 [ Source.maxzoom 14
                 , Source.attribution "<a href=\"https://www.maptiler.com/copyright/\" target=\"_blank\">&copy; MapTiler</a> <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">&copy; OpenStreetMap contributors</a>"
                 ]
-            , Source.geoJSONFromUrl "wards" "wards.geojson" [Source.generateIds]
+            , Source.geoJSONFromUrl "wards" "wards.geojson" [ Source.generateIds ]
             ]
         , misc =
             [ Style.sprite "https://s3.us-east-2.amazonaws.com/city-bureau-openmaptiles/positron/sprite"
             , Style.glyphs "https://s3.us-east-2.amazonaws.com/city-bureau-openmaptiles/fonts/{fontstack}/{range}.pbf"
-            , Style.defaultCenter <| LngLat -87.6597 41.8369
-            , Style.defaultZoomLevel 10
+            , Style.defaultCenter <| LngLat -87.73 41.825
+            , Style.defaultZoomLevel 8.75
             , Style.name "Positron"
             ]
         }

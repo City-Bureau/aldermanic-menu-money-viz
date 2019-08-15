@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "parcel index.html --no-autoinstall",
-    "build": "parcel build index.html"
+    "build": "parcel build --public-url ./ index.html"
   },
   "keywords": [],
   "author": "City Bureau",
