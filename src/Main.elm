@@ -10,8 +10,8 @@ import Csv exposing (Csv)
 import Dict exposing (Dict)
 import FormatNumber exposing (format)
 import FormatNumber.Locales exposing (usLocale)
-import Html exposing (Html, div, node, option, p, select, span, text)
-import Html.Attributes exposing (selected, style, value)
+import Html exposing (Html, div, label, node, option, p, select, span, text)
+import Html.Attributes exposing (class, for, id, selected, style, value)
 import Html.Events exposing (..)
 import Http
 import List.Extra exposing (elemIndex)
@@ -236,6 +236,21 @@ pieConfig =
     }
 
 
+selectInput : String -> (String -> Msg) -> (a -> Html Msg) -> List a -> Html Msg
+selectInput labelStr msg optionFunc optionList =
+    div [ class "field is-horizontal" ]
+        [ div [ class "field-label" ] [ label [ class "label", for labelStr ] [ text labelStr ] ]
+        , div [ class "field-body" ]
+            [ div [ class "field" ]
+                [ div [ class "select" ]
+                    [ select [ Html.Attributes.id labelStr, onInput msg ]
+                        (List.map optionFunc optionList)
+                    ]
+                ]
+            ]
+        ]
+
+
 main =
     Browser.element
         { init = init
@@ -366,37 +381,32 @@ view model =
     in
     div []
         [ div []
-            [ select [ onInput UpdateWard ]
-                (List.map
-                    (\ward ->
-                        option [ value ward, selected (model.ward == ward) ] [ text ward ]
-                    )
-                    (List.range 1 50 |> List.map String.fromInt)
+            [ selectInput
+                "Ward"
+                UpdateWard
+                (\ward ->
+                    option [ value ward, selected (model.ward == ward) ] [ text ward ]
                 )
-            , select
-                [ onInput (\input -> List.range (String.toInt input |> Maybe.withDefault 2012) maxYear |> UpdateYears) ]
-                (List.map
-                    (\year ->
-                        option [ value year, selected (String.fromInt minYear == year) ] [ text year ]
-                    )
-                    (List.range 2012 maxYear |> List.map String.fromInt)
+                (List.range 1 50 |> List.map String.fromInt)
+            , selectInput
+                "From"
+                (\input -> List.range (String.toInt input |> Maybe.withDefault 2012) maxYear |> UpdateYears)
+                (\year -> option [ value year, selected (String.fromInt minYear == year) ] [ text year ])
+                (List.range 2012 maxYear |> List.map String.fromInt)
+            , selectInput
+                "To"
+                (\input -> List.range minYear (String.toInt input |> Maybe.withDefault 2018) |> UpdateYears)
+                (\year ->
+                    option [ value year, selected (String.fromInt maxYear == year) ] [ text year ]
                 )
-            , select
-                [ onInput (\input -> List.range minYear (String.toInt input |> Maybe.withDefault 2018) |> UpdateYears) ]
-                (List.map
-                    (\year ->
-                        option [ value year, selected (String.fromInt maxYear == year) ] [ text year ]
-                    )
-                    (List.range minYear 2018 |> List.map String.fromInt)
-                )
+                (List.range minYear 2018 |> List.map String.fromInt)
             ]
         , div [ style "display" "flex", style "flex" "1", style "max-width" "1000px" ]
-            [ div [ style "width" "100%", style "max-width" "250px" ]
+            [ div [ class "legend" ]
                 (List.map
                     (\( data, idx ) ->
                         p
-                            [ style "position" "absolute"
-                            , style "transition" "transform 200ms ease-in-out"
+                            [ class "legend-item"
                             , style "font-weight"
                                 (if Array.get idx categoryArr |> Maybe.withDefault "NULL" |> (==) model.hoverCategory then
                                     "bold"
@@ -407,12 +417,9 @@ view model =
                             , style "transform" ("translateY(" ++ String.fromInt ((Array.get idx sortedArray |> Maybe.withDefault 0) * 25) ++ "px)")
                             ]
                             [ span
-                                [ style "display" "inline-block"
+                                [ class "legend-color"
                                 , style "background-color"
                                     (Array.get idx colors |> Maybe.withDefault Color.black |> Color.toCssString)
-                                , style "width" "20px"
-                                , style "height" "20px"
-                                , style "margin-right" "6px"
                                 ]
                                 []
                             , span [] [ text (data.label ++ ": $" ++ format usLocale data.data) ]
@@ -420,15 +427,15 @@ view model =
                     )
                     displayData
                 )
-            , div [ style "width" "100%", style "max-width" "600px", style "max-height" "400px", style "text-align" "center" ]
+            , div [ class "donut-container" ]
                 [ svg
-                    [ viewBox 0 0 w h, style "max-width" "100%", style "max-height" "100%" ]
+                    [ viewBox 0 0 w h ]
                     [ g [ transform [ Translate (w / 2) (h / 2) ] ]
                         [ g [] <| List.indexedMap makeSlice pieData
                         ]
                     ]
                 ]
-            , div [ style "position" "relative", style "min-width" "300px", style "height" "400px" ]
+            , div [ class "map-container" ]
                 [ Mapbox.Element.map
                     [ minZoom 8
                     , maxZoom 17

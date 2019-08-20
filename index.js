@@ -4,6 +4,8 @@ import { registerCustomElement } from "elm-mapbox";
 import * as mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 
+import "./src/scss/style.scss";
+
 registerCustomElement({
   token: ""
 });
@@ -46,7 +48,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (features.length > 0) {
       map.getCanvas().style.cursor = "pointer";
       hoverPopup.setLngLat(e.lngLat)
-        .setHTML(`<strong>Ward ${ward}</strong>`)
+        .setHTML(`<strong>Ward ${ward + 1}</strong>`)
         .addTo(map);
     } else {
       removePopup(hoverPopup);
@@ -68,14 +70,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (features.length === 0) {
       return;
     }
-    app.ports.selectedWard.send(ward);
+    app.ports.selectedWard.send(ward + 1);
   }
 
   function updateActiveFeature(prevWard, currWard) {
-    if (prevWard) {
+    if (typeof prevWard === "number") {
       map.setFeatureState({ source: "wards", id: prevWard }, { active: false });
     }
-    if (currWard) {
+    if (typeof currWard === "number") {
       map.setFeatureState({ source: "wards", id: currWard }, { active: true });
     }
   }
@@ -87,7 +89,8 @@ document.addEventListener("DOMContentLoaded", () => {
   app.ports.mapLoaded.send(true);
 
   app.ports.selectWard.subscribe(ward => {
-    updateActiveFeature(activeWard, ward);
-    activeWard = ward;
+    const newWard = ward - 1;
+    updateActiveFeature(activeWard, newWard);
+    activeWard = newWard;
   });
 });
