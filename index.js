@@ -13,6 +13,14 @@ registerCustomElement({
 document.addEventListener("DOMContentLoaded", () => {
   const app = Elm.Main.init({ flags: {}, node: document.querySelector("main") });
   const map = document.querySelector("elm-mapbox-map")._map;
+
+  map.dragRotate.disable();
+  map.touchZoomRotate.disableRotation();
+  // Disable drag pan on mobile
+  if (window.innerWidth <= 500) {
+    map.dragPan.disable();
+  }
+
   const hoverPopup = new mapboxgl.Popup({
     closeButton: false,
     closeOnClick: false,

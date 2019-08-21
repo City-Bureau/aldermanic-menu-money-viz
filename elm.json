@@ -7,7 +7,6 @@
     "dependencies": {
         "direct": {
             "avh4/elm-color": "1.0.0",
-            "cuducos/elm-format-number": "6.1.0",
             "elm/browser": "1.0.1",
             "elm/core": "1.0.2",
             "elm/html": "1.0.0",
@@ -16,29 +15,19 @@
             "elm/parser": "1.1.0",
             "elm/svg": "1.0.1",
             "elm-community/list-extra": "8.2.2",
-            "elm-community/typed-svg": "5.0.1",
-            "folkertdev/one-true-path-experiment": "4.0.3",
+            "erosson/number-suffix": "1.1.0",
             "gampleman/elm-mapbox": "4.1.0",
-            "gampleman/elm-visualization": "2.0.1",
             "mgold/elm-animation": "2.0.0",
             "periodic/elm-csv": "2.0.1"
         },
         "indirect": {
+            "cuducos/elm-format-number": "6.1.0",
             "elm/bytes": "1.0.8",
             "elm/file": "1.0.5",
             "elm/time": "1.0.0",
             "elm/url": "1.0.0",
             "elm/virtual-dom": "1.0.2",
-            "folkertdev/elm-deque": "3.0.1",
-            "folkertdev/svg-path-lowlevel": "3.0.0",
-            "ianmackenzie/elm-float-extra": "1.1.0",
-            "ianmackenzie/elm-geometry": "1.2.1",
-            "ianmackenzie/elm-interval": "1.0.1",
-            "ianmackenzie/elm-triangular-mesh": "1.0.2",
-            "justinmimbs/date": "3.1.2",
-            "justinmimbs/time-extra": "1.1.0",
-            "myrho/elm-round": "1.0.4",
-            "ryannhg/date-format": "2.3.0"
+            "myrho/elm-round": "1.0.4"
         }
     },
     "test-dependencies": {

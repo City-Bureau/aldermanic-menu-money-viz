@@ -8,24 +8,15 @@ import Cmd exposing (Ward, mapLoaded, selectWard, selectedWard)
 import Color exposing (Color)
 import Csv exposing (Csv)
 import Dict exposing (Dict)
-import FormatNumber exposing (format)
-import FormatNumber.Locales exposing (usLocale)
-import Html exposing (Html, div, label, node, option, p, select, span, text)
+import Html exposing (Html, br, div, label, node, option, p, select, span, text)
 import Html.Attributes exposing (class, for, id, selected, style, value)
 import Html.Events exposing (..)
 import Http
 import List.Extra exposing (elemIndex)
 import MapStyle exposing (mapStyle)
 import Mapbox.Element exposing (..)
+import NumberSuffix exposing (standardConfig)
 import Parser exposing (Parser)
-import Path
-import Shape exposing (PieConfig, defaultPieConfig)
-import TypedSvg exposing (g, svg, text_)
-import TypedSvg.Attributes exposing (dy, fill, stroke, textAnchor, transform, viewBox)
-import TypedSvg.Attributes.InPx exposing (height, width)
-import TypedSvg.Core exposing (Svg, text)
-import TypedSvg.Events exposing (onMouseOut, onMouseOver)
-import TypedSvg.Types exposing (AnchorAlignment(..), Fill(..), Transform(..), em)
 
 
 type alias WardYear =
@@ -74,11 +65,6 @@ categories =
     ]
 
 
-wardAldMap : Dict Int String
-wardAldMap =
-    [ ( 1, "" ), ( 2, "" ) ] |> Dict.fromList
-
-
 w : Float
 w =
     450
@@ -87,6 +73,16 @@ w =
 h : Float
 h =
     450
+
+
+padding : Float
+padding =
+    20
+
+
+rowHeight : Int
+rowHeight =
+    50
 
 
 radius : Float
@@ -222,20 +218,6 @@ compareWithList baseList a b =
     Basics.compare (Maybe.withDefault baseLen (elemIndex a baseList)) (Maybe.withDefault baseLen (elemIndex b baseList))
 
 
-pieConfig : PieConfig WardYearGroup
-pieConfig =
-    { startAngle = 0
-    , endAngle = 2 * pi
-    , padAngle = 0.0025
-    , sortingFn = \a b -> compareWithList (categories |> List.map Tuple.first) a.label b.label
-    , valueFn = .data
-    , innerRadius = 100
-    , outerRadius = 200
-    , cornerRadius = 5
-    , padRadius = 0
-    }
-
-
 selectInput : String -> (String -> Msg) -> (a -> Html Msg) -> List a -> Html Msg
 selectInput labelStr msg optionFunc optionList =
     div [ class "field is-horizontal" ]
@@ -279,6 +261,7 @@ init _ =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        -- TODO: Support "All" for wards as well as potentially region groupings?
         UpdateWard ward ->
             let
                 data =
@@ -338,9 +321,6 @@ view model =
                 |> List.map (animate model.clock)
                 |> List.map2 WardYearGroup (List.map Tuple.second categories)
 
-        pieData =
-            wardData |> Shape.pie pieConfig
-
         categoryArr =
             List.map Tuple.second categories |> Array.fromList
 
@@ -358,29 +338,15 @@ view model =
                 |> List.map Tuple.second
                 |> Array.fromList
 
-        makeSlice index datum =
-            let
-                category =
-                    Array.get index categoryArr |> Maybe.withDefault ""
-            in
-            Path.element (Shape.arc datum)
-                [ fill <|
-                    Fill <|
-                        Maybe.withDefault Color.black <|
-                            Array.get index colors
-                , stroke
-                    (if model.hoverCategory == category then
-                        Color.black
+        dataSum =
+            displayData |> List.map (Tuple.first >> .data) |> List.sum
 
-                     else
-                        Color.rgba 0 0 0 0
-                    )
-                , onMouseOver (HoverCategory category)
-                , onMouseOut (HoverCategory "")
-                ]
+        containerHeight =
+            (categories |> List.length |> (*) rowHeight |> String.fromInt) ++ "px"
     in
     div []
-        [ div []
+        -- TODO: Ward on top, From and To on second row in mobile
+        [ div [ class "field-container" ]
             [ selectInput
                 "Ward"
                 UpdateWard
@@ -401,41 +367,37 @@ view model =
                 )
                 (List.range minYear 2018 |> List.map String.fromInt)
             ]
-        , div [ style "display" "flex", style "flex" "1", style "max-width" "1000px" ]
-            [ div [ class "legend" ]
-                (List.map
-                    (\( data, idx ) ->
-                        p
-                            [ class "legend-item"
-                            , style "font-weight"
-                                (if Array.get idx categoryArr |> Maybe.withDefault "NULL" |> (==) model.hoverCategory then
-                                    "bold"
-
-                                 else
-                                    "normal"
-                                )
-                            , style "transform" ("translateY(" ++ String.fromInt ((Array.get idx sortedArray |> Maybe.withDefault 0) * 25) ++ "px)")
-                            ]
-                            [ span
-                                [ class "legend-color"
-                                , style "background-color"
-                                    (Array.get idx colors |> Maybe.withDefault Color.black |> Color.toCssString)
+        , div [ class "display-container" ]
+            [ div [ class "legend", style "min-height" containerHeight ]
+                ([ span [ class "axis-label" ] [ text "100%" ] ]
+                    ++ List.map
+                        (\( data, idx ) ->
+                            let
+                                bgColor =
+                                    Array.get idx colors |> Maybe.withDefault Color.black |> Color.toCssString
+                            in
+                            div
+                                [ class "legend-item"
+                                , style "transform" ("translateY(" ++ String.fromInt ((Array.get idx sortedArray |> Maybe.withDefault 0) * rowHeight) ++ "px)")
                                 ]
-                                []
-                            , span [] [ text (data.label ++ ": $" ++ format usLocale data.data) ]
-                            ]
-                    )
-                    displayData
+                                [ div [ class "legend-label" ]
+                                    [ span [ style "font-weight" "bold" ] [ text data.label ]
+                                    , br [] []
+                                    , span [] [ text ("$" ++ NumberSuffix.format { standardConfig | getSuffix = NumberSuffix.suffixStandardShort } data.data) ]
+                                    ]
+                                , div [ class "legend-bar-container", style "position" "relative" ]
+                                    [ div
+                                        [ style "width" ((data.data / dataSum |> (*) 100.0 |> String.fromFloat) ++ "%")
+                                        , style "background-color" bgColor
+                                        , style "height" ((rowHeight |> toFloat |> (*) 0.6 |> String.fromFloat) ++ "px")
+                                        ]
+                                        []
+                                    ]
+                                ]
+                        )
+                        displayData
                 )
-            , div [ class "donut-container" ]
-                [ svg
-                    [ viewBox 0 0 w h ]
-                    [ g [ transform [ Translate (w / 2) (h / 2) ] ]
-                        [ g [] <| List.indexedMap makeSlice pieData
-                        ]
-                    ]
-                ]
-            , div [ class "map-container" ]
+            , div [ class "map-container", style "min-height" containerHeight ]
                 [ Mapbox.Element.map
                     [ minZoom 8
                     , maxZoom 17
