@@ -8,6 +8,7 @@ html {
 html, body {
   padding: 0;
   font-family: $defaultFontStack;
+  // overflow-x: hidden;
 }
 
 html,
@@ -32,12 +33,6 @@ body {
   }
   body {
     min-height: calc(100vh - #{$navbar-height + $navbarMenuHeight})
-  }
-}
-
-@media screen and (min-width: $maxWidth) {
-  html {
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.15);
   }
 }
 
@@ -126,7 +121,8 @@ img {
 .field-container {
   display: flex;
   justify-content: center;
-  margin-top: grid(1);
+  margin: grid(1);
+  margin-top: grid(2);
   margin-bottom: grid(4);
 }
 
@@ -136,9 +132,15 @@ img {
   margin-bottom: 0;
 
   .field-label {
+    margin-bottom: 0;
     margin-right: grid(1);
     margin-left: grid(2);
   }
+}
+
+.year-inputs-container {
+  display: flex;
+  flex-direction: row;
 }
 
 .map-container {
@@ -239,9 +241,54 @@ p:last-of-type {
   margin-right: 6px;
 }
 
-@media screen and (max-width: 1000px) {
+@media screen and (max-width: 500px) {
   .display-container {
     flex-direction: column;
+  }
+
+  .field-container {
+    flex-direction: column;
+    position: sticky;
+    position: -webkit-sticky;
+    z-index: 1;
+    top: 0;
+    margin: 0;
+    padding: grid(1);
+    margin-bottom: grid(5);
+    background-color: $white;
+    box-shadow: 0 3px 6px 0 rgba(145,145,145,0.23);
+  }
+
+  .field.is-horizontal {
+    .field-label {
+      margin-left: 0;
+    }
+  }
+
+  .ward-input-container {
+    margin-bottom: grid(1);
+
+    .field, .field-body, .select, select {
+      width: 100%;
+    }
+  }
+
+  .year-inputs-container {
+    display: flex;
+    flex: 1;
+
+    .field, .field-body, .select, select {
+      width: 100%;
+    }
+
+    & > .field {
+      &:first-child {
+        margin-right: grid(1);
+      }
+      &:last-child {
+        margin-left: grid(1);
+      }
+    }
   }
 
   .map-container {

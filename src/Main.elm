@@ -345,16 +345,15 @@ view model =
             (categories |> List.length |> (*) rowHeight |> String.fromInt) ++ "px"
     in
     div []
-        -- TODO: Ward on top, From and To on second row in mobile
         [ div [ class "field-container" ]
-            [ selectInput
+            [ div [ class "ward-input-container" ] [selectInput
                 "Ward"
                 UpdateWard
                 (\ward ->
                     option [ value ward, selected (model.ward == ward) ] [ text ward ]
                 )
-                (List.range 1 50 |> List.map String.fromInt)
-            , selectInput
+                (List.range 1 50 |> List.map String.fromInt)]
+            , div [ class "year-inputs-container" ] [selectInput
                 "From"
                 (\input -> List.range (String.toInt input |> Maybe.withDefault 2012) maxYear |> UpdateYears)
                 (\year -> option [ value year, selected (String.fromInt minYear == year) ] [ text year ])
@@ -365,7 +364,7 @@ view model =
                 (\year ->
                     option [ value year, selected (String.fromInt maxYear == year) ] [ text year ]
                 )
-                (List.range minYear 2018 |> List.map String.fromInt)
+                (List.range minYear 2018 |> List.map String.fromInt)]
             ]
         , div [ class "display-container" ]
             [ div [ class "legend", style "min-height" containerHeight ]
