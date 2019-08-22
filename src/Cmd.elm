@@ -2,7 +2,7 @@ port module Cmd exposing (Ward, mapLoaded, selectWard, selectedWard)
 
 
 type alias Ward =
-    Int
+    String
 
 
 port selectWard : Ward -> Cmd a

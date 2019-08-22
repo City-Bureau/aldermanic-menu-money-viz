@@ -191,7 +191,15 @@ emptyDataRow =
 filterRows : String -> List Int -> List WardYear -> List WardYear
 filterRows ward years rows =
     rows
-        |> List.filter (.ward >> (==) ward)
+        |> List.filter
+            (.ward
+                >> (if ward == "All" then
+                        \wv -> True
+
+                    else
+                        (==) ward
+                   )
+            )
         |> List.filter (.year >> (\y -> List.member y years))
 
 
@@ -246,7 +254,7 @@ init : () -> ( Model, Cmd Msg )
 init _ =
     ( { loading = True
       , clock = 0
-      , ward = "1"
+      , ward = "All"
       , years = List.range 2012 2018
       , rows = []
       , data = Dict.empty
@@ -261,7 +269,6 @@ init _ =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        -- TODO: Support "All" for wards as well as potentially region groupings?
         UpdateWard ward ->
             let
                 data =
@@ -270,7 +277,7 @@ update msg model =
                 animations =
                     getAnimations model.clock model.data data
             in
-            ( { model | ward = ward, data = data, animations = animations }, selectWard (String.toInt ward |> Maybe.withDefault 0) )
+            ( { model | ward = ward, data = data, animations = animations }, selectWard ward )
 
         UpdateYears years ->
             let
@@ -304,7 +311,7 @@ update msg model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.batch [ onAnimationFrameDelta Tick, selectedWard (\ward -> UpdateWard (String.fromInt ward)), mapLoaded (\b -> UpdateWard model.ward) ]
+    Sub.batch [ onAnimationFrameDelta Tick, selectedWard UpdateWard, mapLoaded (\b -> UpdateWard model.ward) ]
 
 
 view : Model -> Html Msg
@@ -346,25 +353,29 @@ view model =
     in
     div []
         [ div [ class "field-container" ]
-            [ div [ class "ward-input-container" ] [selectInput
-                "Ward"
-                UpdateWard
-                (\ward ->
-                    option [ value ward, selected (model.ward == ward) ] [ text ward ]
-                )
-                (List.range 1 50 |> List.map String.fromInt)]
-            , div [ class "year-inputs-container" ] [selectInput
-                "From"
-                (\input -> List.range (String.toInt input |> Maybe.withDefault 2012) maxYear |> UpdateYears)
-                (\year -> option [ value year, selected (String.fromInt minYear == year) ] [ text year ])
-                (List.range 2012 maxYear |> List.map String.fromInt)
-            , selectInput
-                "To"
-                (\input -> List.range minYear (String.toInt input |> Maybe.withDefault 2018) |> UpdateYears)
-                (\year ->
-                    option [ value year, selected (String.fromInt maxYear == year) ] [ text year ]
-                )
-                (List.range minYear 2018 |> List.map String.fromInt)]
+            [ div [ class "ward-input-container" ]
+                [ selectInput
+                    "Ward"
+                    UpdateWard
+                    (\ward ->
+                        option [ value ward, selected (model.ward == ward) ] [ text ward ]
+                    )
+                    ([ "All" ] ++ (List.range 1 50 |> List.map String.fromInt))
+                ]
+            , div [ class "year-inputs-container" ]
+                [ selectInput
+                    "From"
+                    (\input -> List.range (String.toInt input |> Maybe.withDefault 2012) maxYear |> UpdateYears)
+                    (\year -> option [ value year, selected (String.fromInt minYear == year) ] [ text year ])
+                    (List.range 2012 maxYear |> List.map String.fromInt)
+                , selectInput
+                    "To"
+                    (\input -> List.range minYear (String.toInt input |> Maybe.withDefault 2018) |> UpdateYears)
+                    (\year ->
+                        option [ value year, selected (String.fromInt maxYear == year) ] [ text year ]
+                    )
+                    (List.range minYear 2018 |> List.map String.fromInt)
+                ]
             ]
         , div [ class "display-container" ]
             [ div [ class "legend", style "min-height" containerHeight ]

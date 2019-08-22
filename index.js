@@ -104,7 +104,7 @@ document.addEventListener("DOMContentLoaded", () => {
     app.ports.mapLoaded.send(true);
 
     app.ports.selectWard.subscribe(ward => {
-      const newWard = ward - 1;
+      const newWard = isNaN(+ward) ? -1 : +ward - 1;
       updateActiveFeature(activeWard, newWard);
       activeWard = newWard;
     });
