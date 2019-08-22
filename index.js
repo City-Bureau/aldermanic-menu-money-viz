@@ -85,7 +85,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (features.length === 0) {
         return;
       }
-      app.ports.selectedWard.send(ward + 1);
+      app.ports.selectedWard.send((ward + 1).toString());
     }
 
     function updateActiveFeature(prevWard, currWard) {
@@ -104,7 +104,7 @@ document.addEventListener("DOMContentLoaded", () => {
     app.ports.mapLoaded.send(true);
 
     app.ports.selectWard.subscribe(ward => {
-      const newWard = isNaN(+ward) ? -1 : +ward - 1;
+      const newWard = isNaN(+ward) ? 50 : +ward - 1;
       updateActiveFeature(activeWard, newWard);
       activeWard = newWard;
     });
