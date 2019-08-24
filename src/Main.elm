@@ -136,14 +136,14 @@ csvRecToWardYear headers results =
                         { rec | ward = result }
 
                     "year" ->
-                        { rec | year = Maybe.withDefault 0 (String.toInt result) }
+                        { rec | year = result |> String.toInt |> Maybe.withDefault 0 }
 
                     _ ->
                         { rec
                             | data =
                                 Dict.union
                                     (Dict.fromList
-                                        [ ( header, Maybe.withDefault 0 (String.toFloat result) )
+                                        [ ( header, result |> String.toFloat |> Maybe.withDefault 0 )
                                         ]
                                     )
                                     rec.data
@@ -209,8 +209,8 @@ getAnimations clock prev cur =
         (Tuple.first
             >> (\c ->
                     animation clock
-                        |> from (Maybe.withDefault 0 (Dict.get c prev))
-                        |> to (Maybe.withDefault 0 (Dict.get c cur))
+                        |> from (prev |> Dict.get c |> Maybe.withDefault 0)
+                        |> to (cur |> Dict.get c |> Maybe.withDefault 0)
                         |> duration animDur
                )
         )
@@ -223,7 +223,7 @@ compareWithList baseList a b =
         baseLen =
             List.length baseList + 1
     in
-    Basics.compare (Maybe.withDefault baseLen (elemIndex a baseList)) (Maybe.withDefault baseLen (elemIndex b baseList))
+    Basics.compare (baseList |> elemIndex a |> Maybe.withDefault baseLen) (baseList |> elemIndex b |> Maybe.withDefault baseLen)
 
 
 selectInput : String -> (String -> Msg) -> (a -> Html Msg) -> List a -> Html Msg
@@ -318,10 +318,13 @@ view : Model -> Html Msg
 view model =
     let
         minYear =
-            Maybe.withDefault 2012 (model.years |> List.head)
+            model.years |> List.head |> Maybe.withDefault 2012
 
         maxYear =
-            Maybe.withDefault 2018 (model.years |> List.reverse |> List.head)
+            model.years
+                |> List.reverse
+                |> List.head
+                |> Maybe.withDefault 2018
 
         wardData =
             model.animations
@@ -365,14 +368,14 @@ view model =
             , div [ class "year-inputs-container" ]
                 [ selectInput
                     "From"
-                    (\input -> List.range (String.toInt input |> Maybe.withDefault 2012) maxYear |> UpdateYears)
-                    (\year -> option [ value year, selected (String.fromInt minYear == year) ] [ text year ])
+                    (\input -> List.range (input |> String.toInt |> Maybe.withDefault 2012) maxYear |> UpdateYears)
+                    (\year -> option [ value year, selected (minYear |> String.fromInt |> (==) year) ] [ text year ])
                     (List.range 2012 maxYear |> List.map String.fromInt)
                 , selectInput
                     "To"
-                    (\input -> List.range minYear (String.toInt input |> Maybe.withDefault 2018) |> UpdateYears)
+                    (\input -> input |> String.toInt |> Maybe.withDefault 2018 |> List.range minYear |> UpdateYears)
                     (\year ->
-                        option [ value year, selected (String.fromInt maxYear == year) ] [ text year ]
+                        option [ value year, selected (maxYear |> String.fromInt |> (==) year) ] [ text year ]
                     )
                     (List.range minYear 2018 |> List.map String.fromInt)
                 ]
@@ -384,7 +387,7 @@ view model =
                         (\( data, idx ) ->
                             let
                                 bgColor =
-                                    Array.get idx colors |> Maybe.withDefault Color.black |> Color.toCssString
+                                    colors |> Array.get idx |> Maybe.withDefault Color.black |> Color.toCssString
                             in
                             div
                                 [ class "legend-item"
