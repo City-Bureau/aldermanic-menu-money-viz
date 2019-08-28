@@ -55,7 +55,7 @@ categories =
     [ ( "streets", "CDOT/Streets" )
     , ( "lighting", "Lighting" )
     , ( "parks", "Parks" )
-    , ( "schools", "Schools" )
+    , ( "schools", "Playgrounds" )
     , ( "cameras", "Cameras" )
     , ( "misc", "Misc." )
     , ( "arts", "Arts" )
